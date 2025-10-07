@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Currency Converter</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Poppins", sans-serif;
+      background: linear-gradient(135deg, #00b4db, #0083b0);
+      height: 100vh;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 30px;
+      border-radius: 15px;
+      text-align: center;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(8px);
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      font-size: 1.8rem;
+      color: #f9f9f9;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+    }
+
+    input {
+      text-align: center;
+    }
+
+    select {
+      background: #f3f3f3;
+      color: #333;
+    }
+
+    button {
+      background: #ffcc00;
+      color: #222;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    button:hover {
+      background: #ffb300;
+      transform: scale(1.05);
+    }
+
+    .result {
+      margin-top: 15px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .error {
+      color: #ffbaba;
+      font-size: 0.9rem;
+      margin-top: 10px;
+    }
+
+    .last-updated {
+      font-size: 0.85rem;
+      margin-top: 8px;
+      color: #d8f3dc;
+    }
+
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>💱 Currency Converter</h1>
+
+    <input type="number" id="amount" placeholder="Enter amount" value="1">
+
+    <select id="from-currency"></select>
+    <select id="to-currency"></select>
+
+    <button id="convert">Convert</button>
+
+    <div class="result" id="result">Converted amount will appear here</div>
+    <div class="error" id="error"></div>
+    <div class="last-updated" id="last-updated"></div>
+  </div>
+
+  <script>
+    const amountInput = document.getElementById("amount");
+    const fromCurrency = document.getElementById("from-currency");
+    const toCurrency = document.getElementById("to-currency");
+    const result = document.getElementById("result");
+    const errorDiv = document.getElementById("error");
+    const lastUpdatedDiv = document.getElementById("last-updated");
+    const convertBtn = document.getElementById("convert");
+
+    let cache = {};
+
+    // Fetch currency symbols on load
+    async function loadCurrencies() {
+      try {
+        const res = await fetch("https://api.frankfurter.app/currencies");
+        const data = await res.json();
+        const currencies = Object.keys(data);
+
+        currencies.forEach((code) => {
+          const option1 = document.createElement("option");
+          const option2 = document.createElement("option");
+          option1.value = option2.value = code;
+          option1.textContent = option2.textContent = `${code} (${data[code]})`;
+          fromCurrency.appendChild(option1);
+          toCurrency.appendChild(option2);
+        });
+
+        fromCurrency.value = "USD";
+        toCurrency.value = "INR";
+      } catch (error) {
+        errorDiv.textContent = "Failed to load currencies. Please refresh.";
+      }
+    }
+
+    loadCurrencies();
+
+    // Conversion function
+    async function convertCurrency() {
+      const amount = parseFloat(amountInput.value);
+      const from = fromCurrency.value;
+      const to = toCurrency.value;
+
+      if (!amount || amount <= 0) {
+        errorDiv.textContent = "Please enter a valid amount.";
+        result.textContent = "";
+        return;
+      }
+
+      if (from === to) {
+        result.textContent = `Same currency selected: ${amount} ${from}`;
+        errorDiv.textContent = "";
+        return;
+      }
+
+      const cacheKey = `${from}_${to}`;
+      const now = new Date();
+
+      try {
+        let rateData;
+
+        if (cache[cacheKey]) {
+          rateData = cache[cacheKey];
+        } else {
+          const res = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`);
+          rateData = await res.json();
+          cache[cacheKey] = rateData;
+        }
+
+        const rate = rateData.rates[to];
+        const converted = (amount * rate).toFixed(2);
+
+        result.textContent = `${amount} ${from} = ${converted} ${to}`;
+        errorDiv.textContent = "";
+        lastUpdatedDiv.textContent = `Last updated: ${rateData.date}`;
+      } catch (err) {
+        errorDiv.textContent = "Error fetching conversion rates. Try again.";
+      }
+    }
+
+    convertBtn.addEventListener("click", convertCurrency);
+  </script>
+</body>
+</html>
